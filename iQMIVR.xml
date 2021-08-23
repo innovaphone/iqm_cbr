@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<voicemail>
+<!-- innovaphone iQM_IVR == inno srl V1.01 KWA 11_2012 -->
+
+<!-- Track101 Wellcome -->
+<!-- Track102 Enter your phone number  -->
+<!-- Track103 The number is  -->
+<!-- Track104 If the number is correct confirm with hash, if you like to modify press star  -->
+<!-- Track106 We have recorded your request and will recall, THKS   -->
+<!-- Track107 Numero invalid  -->
+
+<!-- Fase1 Benvenuto  -->
+	<function define="Fase1"> 
+		<store-get root="" name="Track101.g711a" out-url="$ctrl" /> 
+        	<pbx-prompt url="$ctrl" /> 
+	</function>
+<!-- Fase2 e Fase 5  -->		
+	<function define="Getnumber"> 
+		<assign out="$Teiln" value="" /> 
+  		<assign out="$Teiln-ok" value="false" /> 
+		<event type="dtmf" block="false">
+			<assign out="$Teiln-timeout" value="false" />
+		  	<pbx-getdtmfdigit out-dtmf="$dtmf" /> 
+			<switch var="$dtmf">
+				<case equal="#">
+					<assign out="$Teiln-ok" value="true" /> 
+  					<return /> 
+				</case>
+ 			 </switch>
+  			 <lib-strcat string="$Teiln" string2="$dtmf" out-string="$Teiln" /> 
+
+  		</event>
+		<store-get root="" name="$Prompt" out-url="$ctrl" /> 
+        	<pbx-prompt url="$ctrl" /> 
+		<while notcond="$Teiln-ok">
+  			<store-get root="" name="silence.g711a" out-url="$ctrl" /> 
+  			<assign out="$Teiln-timeout" value="true" /> 
+  			<pbx-prompt url="$ctrl" sec="5" repeat="false" /> 
+			<if cond="$Teiln-timeout">
+				<assign out="$Teiln" value="" /> 
+				<store-get root="" name="$Prompt" out-url="$ctrl" /> 
+				<pbx-prompt url="$ctrl" /> 
+			</if>
+  		</while>
+	</function>
+
+	<function define="PromptString">
+  		<assign out="$i" value="1" /> 
+  		<assign out="$c" value="" /> 
+  		<index value="$string" pos="$i" size="1" out="$c" /> 
+  		<lib-strlen string="$c" out="$len-c" /> 
+		<while cond="$len-c">
+			<switch var="$c">
+				<case equal="*">
+  					<assign out="$filename" value="_star.g711a" /> 
+  				</case>
+				<case equal="#">
+  					<assign out="$filename" value="_hash.g711a" /> 
+  				</case>
+				<default>
+  					<lib-strcat string="_" string2="$c" out-string="$ctrl" /> 
+  					<lib-strcat string="$ctrl" string2=".g711a" out-string="$filename" /> 
+  				</default>
+  			</switch>
+  			<store-get root="" name="$filename" out-url="$ctrl" /> 
+  			<pbx-prompt url="$ctrl" barge-in="false" /> 
+  			<add value="$i" value2="1" out="$i" /> 
+  			<assign out="$c" value="" /> 
+  			<index value="$string" pos="$i" size="1" out="$c" /> 
+  			<lib-strlen string="$c" out="$len-c" /> 
+		</while>
+  	</function>
+
+<!-- Fase3 Ripetizione Numero  -->
+	<function define="Fase3"> 
+		<store-get root="" name="Track103.g711a" out-url="$ctrl" /> 
+        	<pbx-prompt url="$ctrl" />
+		<assign out="$string" value="$Teiln" />
+		<call name="PromptString" /> 
+	</function>
+
+<!-- Fase4 Conferma  -->
+	<function define="Fase4"> 
+		<assign out="$done-ok" value="False" />
+		<event type="dtmf" block="false">
+  			<pbx-getdtmfdigit out-dtmf="$dtmf" /> 
+			<switch var="$dtmf">
+				<case equal="#">
+    					<assign out="$Numero-ok" value="true" />
+					<assign out="$done-ok" value="true" />
+				</case>
+				<default>
+					<assign out="$Numero-ok" value="false" />
+					<assign out="$done-ok" value="true" />
+				</default>
+			</switch>
+		</event>
+		<while notcond="$done-ok">
+			<store-get root="" name="Track104.g711a" out-url="$ctrl" /> 
+			<pbx-prompt url="$ctrl" />   			
+			<store-get root="" name="silence.g711a" out-url="$ctrl" /> 
+  			<pbx-prompt url="$ctrl" sec="1" repeat="true" /> 
+		</while>
+	</function>
+
+<!-- Main routine  -->
+	<function define="Main">
+		<event type="timer" name="vbguard">
+  		  	<pbx-disc /> 
+  		</event>
+		<timer name="vbguard" sec="300" />
+		<call name="Fase1" /> 
+		<assign out="$Numero-ok" value="false" /> 
+		<while notcond="$Numero-ok">
+			<assign out="$Prompt" value="Track102.g711a" /> 
+			<call name="Getnumber" /> 
+			<lib-strlen string="$Teiln" out="$len-readpin" />
+ 
+			<switch var="$len-readpin">
+				<case less="3">
+					<store-get root="" name="Track107.g711a" out-url="$ctrl" /> 
+		        		<pbx-prompt url="$ctrl" /> 
+				</case>
+				<case greater-equal="3">
+					<call name="Fase3" />
+					<call name="Fase4" />
+				</case>
+			</switch>
+		</while>
+		<assign out="$myNumber" value="$string" /> 
+		<store-cookie name="Prefix.txt" out="$Prefix"/>
+		<lib-strcat string="$Prefix" string2="$myNumber" out-string="$myNumber" />
+		<store-getstat root="" name="DATA" out-error="$error"/>
+        	<if cond="$error">
+			<store-mkdir root="DATA" name="/"/>
+		</if>
+		<store-cookie root="DATA" name="$myNumber" value=""/>
+<!-- Fase8 Ringraziamento  -->
+		<store-get root="" name="Track106.g711a" out-url="$ctrl" /> 
+        	<pbx-prompt url="$ctrl" /> 
+		<pbx-disc/>
+      </function>    
+</voicemail>
+<!-- iQM Callback Requests wiki-src/xml/iQM_CBR 1,0,0,0 (C) innovaphone AG 2010-2013 -->
